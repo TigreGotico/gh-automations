@@ -1,9 +1,6 @@
 name: Publish Stable Build
 on:
   workflow_call:
-    secrets:
-      PYPI_TOKEN:
-        required: true
     inputs:
       runner:
         type: string
@@ -18,9 +15,6 @@ on:
         type: string
         default: ${{ github.ref }}
       publish_release:
-        type: boolean
-        default: True
-      publish_pypi:
         type: boolean
         default: True
     outputs:
@@ -60,34 +54,6 @@ jobs:
           commit_message: Increment Version to ${{ steps.version.outputs.version }}
           branch: ${{ inputs.branch }}  # Ensure the correct branch is referenced
           repository: action/package/
-
-  build_and_publish_pypi:
-    if: ${{ always() && inputs.publish_pypi }}
-    needs:
-      - bump_version
-    runs-on: ${{inputs.runner}}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.branch }}
-          path: action/package/
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: "3.10"
-      - name: Install Build Tools
-        run: |
-          python -m pip install build wheel
-      - name: Build Distribution Packages
-        run: |
-          cd action/package
-          python ${{ inputs.setup_py }} sdist bdist_wheel
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages_dir: action/package/dist/
-          password: ${{secrets.PYPI_TOKEN}}
 
   tag_release:
     needs:
