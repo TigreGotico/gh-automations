@@ -164,6 +164,7 @@ jobs:
         with:
           commit_message: Update Changelog
           repository: action/package/
+          branch: ${{ inputs.branch }}  # Ensure the correct branch is referenced
   build_and_publish_pypi:
     if: ${{ always() && inputs.publish_pypi }}
     needs:
