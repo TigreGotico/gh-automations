@@ -3,7 +3,7 @@ on:
   workflow_call:
     secrets:
       PYPI_TOKEN:
-        required: false
+        required: true
     inputs:
       runner:
         type: string
