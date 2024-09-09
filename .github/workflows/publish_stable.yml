@@ -1,4 +1,4 @@
-name: Publish Alpha Build
+name: Publish Stable Build
 on:
   workflow_call:
     secrets:
@@ -20,15 +20,15 @@ on:
       branch:
         type: string
         default: ${{ github.ref }}
-      publish_prerelease:
+      publish_release:
         type: boolean
-        default: False
+        default: True
       publish_pypi:
         type: boolean
         default: True
       update_changelog:
         type: boolean
-        default: false
+        default: True
       changelog_file:
         type: string
         default: "CHANGELOG.md"
@@ -62,66 +62,11 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: "3.10"
-      - name: Debug GitHub Labels
-        run: |
-          echo "Labels in Pull Request:"
-          echo "${{ toJson(github.event.pull_request.labels) }}"
 
-          # Convert the labels array into text using jq
-          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
-
-          # Handle the case where there are no labels
-          if [ -z "$LABELS" ]; then
-            echo "No labels found on the pull request."
-          else
-            echo "Labels: $LABELS"
-          fi
-
-      - name: Determine version bump
-        id: version_bump
-        run: |
-          # Convert the labels array into text using jq
-          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
-
-          # Handle the case where there are no labels
-          if [ -z "$LABELS" ]; then
-            echo "No labels found on the pull request."
-            LABELS=""
-          fi
-
-          echo "Labels: $LABELS"
-
-          MAJOR=0
-          MINOR=0
-          BUILD=0
-
-          # Loop over the labels and determine the version bump
-          for label in $LABELS; do
-            echo "Processing label: $label"
-            if [ "$label" == "breaking" ]; then
-              MAJOR=1
-            elif [ "$label" == "feature" ]; then
-              MINOR=1
-            elif [ "$label" == "fix" ]; then
-              BUILD=1
-            fi
-          done
-
-          # Set the output based on the labels found
-          if [ $MAJOR -eq 1 ]; then
-            echo "::set-output name=part::major"
-          elif [ $MINOR -eq 1 ]; then
-            echo "::set-output name=part::minor"
-          elif [ $BUILD -eq 1 ]; then
-            echo "::set-output name=part::build"
-          else
-            echo "::set-output name=part::alpha"
-          fi
-
-      - name: Increment Version
+      - name: Declare Alpha stable
         id: version
         run: |
-          python action/github/scripts/update_version.py ${{ steps.version_bump.outputs.part }} --version-file action/package/${{ inputs.version_file }}
+          python action/github/scripts/remove_alpha.py ${{ steps.version_bump.outputs.part }} --version-file action/package/${{ inputs.version_file }}
           echo ::set-output name=version::$(python action/package/${{ inputs.setup_py }} --version)
 
       - name: Push Version Change
@@ -199,11 +144,11 @@ jobs:
           packages_dir: action/package/dist/
           password: ${{secrets.PYPI_TOKEN}}
 
-  tag_prerelease:
+  tag_release:
     needs:
       - update_changelog
       - bump_version
-    if: ${{ always() && inputs.publish_prerelease }}
+    if: ${{ always() && inputs.publish_release }}
     runs-on: ${{inputs.runner}}
     steps:
       - name: Checkout Repository
@@ -217,5 +162,5 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           tag: ${{needs.bump_version.outputs.version}}
           commit: ${{ github.ref }}
-          prerelease: true
+          prerelease: false
           generateReleaseNotes: true
