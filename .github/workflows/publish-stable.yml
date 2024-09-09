@@ -35,6 +35,9 @@ on:
       changelog_max_issues:
         type: number
         default: 50
+      rebase_dev:
+        type: boolean
+        default: True
     outputs:
       version:
         description: Updated version
@@ -75,6 +78,23 @@ jobs:
           commit_message: Increment Version to ${{ steps.version.outputs.version }}
           branch: ${{ inputs.branch }}  # Ensure the correct branch is referenced
           repository: action/package/
+
+  rebase_dev:
+    if: ${{ inputs.rebase_dev }}
+    needs: bump_version
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+          path: action/package/
+      - name: Rebase dev onto master
+        run: |
+          git fetch origin
+          git checkout dev
+          git rebase master
+          git push origin dev
 
   update_changelog:
     needs: bump_version
