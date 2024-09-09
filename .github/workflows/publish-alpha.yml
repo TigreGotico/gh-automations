@@ -11,9 +11,6 @@ on:
       version_file:
         type: string
         default: "version.py"
-      on_version_change:
-        type: string
-        default: ""
       setup_py:
         type: string
         default: "setup.py"
