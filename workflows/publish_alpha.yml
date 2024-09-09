@@ -1,0 +1,219 @@
+name: Publish Alpha Build
+on:
+  workflow_call:
+    secrets:
+      PYPI_TOKEN:
+        required: false
+    inputs:
+      runner:
+        type: string
+        default: "ubuntu-latest"
+      version_file:
+        type: string
+        default: "version.py"
+      on_version_change:
+        type: string
+        default: ""
+      setup_py:
+        type: string
+        default: "setup.py"
+      branch:
+        type: string
+        default: ${{ github.ref }}
+      publish_prerelease:
+        type: boolean
+        default: False
+      publish_pypi:
+        type: boolean
+        default: True
+      update_changelog:
+        type: boolean
+        default: false
+      changelog_file:
+        type: string
+        default: "CHANGELOG.md"
+      changelog_max_issues:
+        type: number
+        default: 50
+    outputs:
+      version:
+        description: Updated Alpha version
+        value: ${{jobs.bump_version.outputs.version}}
+      changelog:
+        description: Changelog Contents
+        value: ${{jobs.update_changelog.outputs.changelog}}
+jobs:
+  bump_version:
+    runs-on: ${{inputs.runner}}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+          path: action/package/
+      - name: Checkout Scripts Repo
+        uses: actions/checkout@v2
+        with:
+          path: action/github/
+          repository: TigreGotico/gh-automations
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.10"
+      - name: Debug GitHub Labels
+        run: |
+          echo "Labels in Pull Request:"
+          echo "${{ toJson(github.event.pull_request.labels) }}"
+
+          # Convert the labels array into text using jq
+          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
+
+          # Handle the case where there are no labels
+          if [ -z "$LABELS" ]; then
+            echo "No labels found on the pull request."
+          else
+            echo "Labels: $LABELS"
+          fi
+
+      - name: Determine version bump
+        id: version_bump
+        run: |
+          # Convert the labels array into text using jq
+          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
+
+          # Handle the case where there are no labels
+          if [ -z "$LABELS" ]; then
+            echo "No labels found on the pull request."
+            LABELS=""
+          fi
+
+          echo "Labels: $LABELS"
+
+          MAJOR=0
+          MINOR=0
+          BUILD=0
+
+          # Loop over the labels and determine the version bump
+          for label in $LABELS; do
+            echo "Processing label: $label"
+            if [ "$label" == "breaking" ]; then
+              MAJOR=1
+            elif [ "$label" == "feature" ]; then
+              MINOR=1
+            elif [ "$label" == "fix" ]; then
+              BUILD=1
+            fi
+          done
+
+          # Set the output based on the labels found
+          if [ $MAJOR -eq 1 ]; then
+            echo "::set-output name=part::major"
+          elif [ $MINOR -eq 1 ]; then
+            echo "::set-output name=part::minor"
+          elif [ $BUILD -eq 1 ]; then
+            echo "::set-output name=part::build"
+          else
+            echo "::set-output name=part::alpha"
+          fi
+
+      - name: Increment Version
+        id: version
+        run: |
+          python action/scripts/update_version.py ${{ steps.version_bump.outputs.part }} --version-file action/package/${{ inputs.version_file }}
+          echo ::set-output name=version::$(python action/package/${{ inputs.setup_py }} --version)
+
+      - name: Push Version Change
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Increment Version to ${{ steps.version.outputs.version }}
+          repository: action/package/
+
+  update_changelog:
+    needs: bump_version
+    runs-on: ${{inputs.runner}}
+    if: ${{ inputs.update_changelog }}
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+          path: action/package/
+      - name: Check Latest Release
+        id: latest_release
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: ${{ github.repository }}
+          excludes: draft,prerelease
+        continue-on-error: true
+      - name: Generate Changelog
+        id: changelog
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          output: action/package/${{ inputs.changelog_file }}
+          futureRelease: ${{needs.bump_version.outputs.version}}
+          maxIssues: ${{ inputs.changelog_max_issues }}
+          sinceTag: ${{ steps.latest_release.outputs.release }}
+      - name: Push Changelog
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update Changelog
+          repository: action/package/
+  build_and_publish_pypi:
+    if: ${{ always() && inputs.publish_pypi }}
+    needs:
+      - update_changelog
+      - bump_version
+    runs-on: ${{inputs.runner}}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+          path: action/package/
+      - name: Checkout Scripts Repo
+        uses: actions/checkout@v2
+        with:
+          path: action/github/
+          repository: TigreGotico/gh-automations
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.10"
+      - name: Install Build Tools
+        run: |
+          python -m pip install build wheel
+      - name: Build Distribution Packages
+        run: |
+          cd action/package
+          python ${{ inputs.setup_py }} sdist bdist_wheel
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages_dir: action/package/dist/
+          password: ${{secrets.PYPI_TOKEN}}
+
+  tag_prerelease:
+    needs:
+      - update_changelog
+      - bump_version
+    if: ${{ always() && inputs.publish_prerelease }}
+    runs-on: ${{inputs.runner}}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+          path: action/package/
+      - name: Create Pre-release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{secrets.GITHUB_TOKEN}}
+          tag: ${{needs.bump_version.outputs.version}}
+          commit: ${{ github.ref }}
+          prerelease: true
+          generateReleaseNotes: true
