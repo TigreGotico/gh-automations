@@ -121,7 +121,7 @@ jobs:
       - name: Increment Version
         id: version
         run: |
-          python action/scripts/update_version.py ${{ steps.version_bump.outputs.part }} --version-file action/package/${{ inputs.version_file }}
+          python action/github/scripts/update_version.py ${{ steps.version_bump.outputs.part }} --version-file action/package/${{ inputs.version_file }}
           echo ::set-output name=version::$(python action/package/${{ inputs.setup_py }} --version)
 
       - name: Push Version Change
