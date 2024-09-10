@@ -45,6 +45,8 @@ def update_version(part, version_file):
         VERSION_BUILD += 1
         VERSION_ALPHA = 1
     elif part == 'alpha':
+        if not VERSION_ALPHA:  # it's a stable release
+            VERSION_MINOR += 1
         VERSION_ALPHA += 1
 
     with open(version_file, 'w') as file:
