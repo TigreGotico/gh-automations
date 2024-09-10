@@ -56,8 +56,20 @@ jobs:
       - name: Determine version bump
         id: version_bump
         run: |
-          # Convert the labels array into text using jq
-          LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r '.[].name')
+          # Check if this is a manual run with no pull request
+          if [ -z "${{ github.event.pull_request }}" ]; then
+            echo "This workflow was triggered manually, no pull request available."
+            LABELS=""
+          else
+            # Convert the labels array into text using jq
+            LABELS=$(echo '${{ toJson(github.event.pull_request.labels) }}' | jq -r 'map(.name) | join(" ")')
+
+            # Check if jq command was successful
+            if [ $? -ne 0 ]; then
+              echo "Error processing labels with jq."
+              exit 1
+            fi
+          fi
 
           # Handle the case where there are no labels
           if [ -z "$LABELS" ]; then
