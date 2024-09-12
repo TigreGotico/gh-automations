@@ -18,6 +18,8 @@ def read_version(version_file):
         content = file.read()
     for l in content.split("\n"):
         l = l.strip()
+        if l.startswith("# END_VERSION_BLOCK"):
+            break
         if l.startswith("VERSION_MAJOR"):
             VERSION_MAJOR = int(l.split("=")[-1])
         elif l.startswith("VERSION_MINOR"):
@@ -58,7 +60,7 @@ VERSION_MAJOR = {VERSION_MAJOR}
 VERSION_MINOR = {VERSION_MINOR}
 VERSION_BUILD = {VERSION_BUILD}
 VERSION_ALPHA = {VERSION_ALPHA}
-# END_VERSION_BLOCK\n""" + contents)
+# END_VERSION_BLOCK""" + contents)
 
 
 if __name__ == "__main__":
