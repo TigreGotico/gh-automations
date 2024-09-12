@@ -49,13 +49,16 @@ def update_version(part, version_file):
             VERSION_BUILD += 1
         VERSION_ALPHA += 1
 
+    with open(version_file, 'r') as file:
+        contents = file.read().split("# END_VERSION_BLOCK")[-1]
+
     with open(version_file, 'w') as file:
         file.write(f"""# START_VERSION_BLOCK
 VERSION_MAJOR = {VERSION_MAJOR}
 VERSION_MINOR = {VERSION_MINOR}
 VERSION_BUILD = {VERSION_BUILD}
 VERSION_ALPHA = {VERSION_ALPHA}
-# END_VERSION_BLOCK""")
+# END_VERSION_BLOCK\n""" + contents)
 
 
 if __name__ == "__main__":
