@@ -28,12 +28,12 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
           path: action/package/
       - name: Checkout Scripts Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: action/github/
           repository: TigreGotico/gh-automations
@@ -62,7 +62,7 @@ jobs:
     runs-on: ${{inputs.runner}}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
           path: action/package/
