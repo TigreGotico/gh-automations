@@ -49,7 +49,7 @@ jobs:
           echo ::set-output name=version::$(python action/package/${{ inputs.setup_py }} --version)
 
       - name: Push Version Change
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: Increment Version to ${{ steps.version.outputs.version }}
           branch: ${{ inputs.branch }}  # Ensure the correct branch is referenced
